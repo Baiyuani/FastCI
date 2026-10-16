@@ -1,0 +1,5 @@
+# The binary the build produces.
+/fastci
+
+# Editor and tool caches that hold no project code.
+/.codegraph/
