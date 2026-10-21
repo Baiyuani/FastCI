@@ -1,5 +1,7 @@
 # FastCI
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 FastCI takes a local git repository (a **Workspace**), copies it into a new
 GitHub repository (**Target repo**), adds a GitHub Actions workflow, and lets
 that workflow build the Workspace's `Dockerfile` and push the image to a
