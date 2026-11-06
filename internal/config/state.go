@@ -12,28 +12,30 @@ import (
 // configuration source, so an update re-renders the same workflow without the
 // user repeating every flag.
 type Entry struct {
-	Owner        string   `json:"owner"`
-	Repo         string   `json:"repo"`
-	Workspace    string   `json:"workspace"`
-	Image        string   `json:"image"`
-	Dockerfile   string   `json:"dockerfile"`
-	Tags         []string `json:"tags,omitempty"`
-	Workflow     string   `json:"workflow"`
-	LastSyncSHA  string   `json:"last_sync_sha"`
-	LastSyncAt   string   `json:"last_sync_at"`
-	WorkspaceSHA string   `json:"workspace_sha"`
+	Owner         string   `json:"owner"`
+	Repo          string   `json:"repo"`
+	Workspace     string   `json:"workspace"`
+	Image         string   `json:"image"`
+	Dockerfile    string   `json:"dockerfile"`
+	Tags          []string `json:"tags,omitempty"`
+	Workflow      string   `json:"workflow"`
+	FreeDiskSpace bool     `json:"free_disk_space,omitempty"`
+	LastSyncSHA   string   `json:"last_sync_sha"`
+	LastSyncAt    string   `json:"last_sync_at"`
+	WorkspaceSHA  string   `json:"workspace_sha"`
 }
 
 // Settings turns the record back into a configuration source.
 func (e Entry) Settings() Settings {
 	return Settings{
-		Workspace:  e.Workspace,
-		Owner:      e.Owner,
-		Repo:       e.Repo,
-		Image:      e.Image,
-		Dockerfile: e.Dockerfile,
-		Tags:       e.Tags,
-		Workflow:   e.Workflow,
+		Workspace:     e.Workspace,
+		Owner:         e.Owner,
+		Repo:          e.Repo,
+		Image:         e.Image,
+		Dockerfile:    e.Dockerfile,
+		Tags:          e.Tags,
+		Workflow:      e.Workflow,
+		FreeDiskSpace: e.FreeDiskSpace,
 	}
 }
 

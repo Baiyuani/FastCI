@@ -145,12 +145,13 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 	}
 
 	rendered, err := workflow.Render(workflow.Params{
-		Host:       opts.Settings.Host(),
-		Image:      opts.Settings.Image,
-		Dockerfile: opts.Settings.Dockerfile,
-		Tags:       result.ImageRefs,
-		Username:   loginUser(opts.Settings, "${{ secrets.REGISTRY_USERNAME }}"),
-		Password:   loginPassword(opts.Settings, "${{ secrets.REGISTRY_PASSWORD }}"),
+		Host:          opts.Settings.Host(),
+		Image:         opts.Settings.Image,
+		Dockerfile:    opts.Settings.Dockerfile,
+		Tags:          result.ImageRefs,
+		Username:      loginUser(opts.Settings, "${{ secrets.REGISTRY_USERNAME }}"),
+		Password:      loginPassword(opts.Settings, "${{ secrets.REGISTRY_PASSWORD }}"),
+		FreeDiskSpace: opts.Settings.FreeDiskSpace,
 	})
 	if err != nil {
 		return Result{}, err
@@ -230,7 +231,8 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 		Owner: owner, Repo: name, Workspace: ws.path,
 		Image: opts.Settings.Image, Dockerfile: opts.Settings.Dockerfile,
 		Tags: opts.Settings.Tags, Workflow: opts.Settings.Workflow,
-		LastSyncSHA: commit, LastSyncAt: time.Now().UTC().Format(time.RFC3339),
+		FreeDiskSpace: opts.Settings.FreeDiskSpace,
+		LastSyncSHA:   commit, LastSyncAt: time.Now().UTC().Format(time.RFC3339),
 		WorkspaceSHA: ws.commit,
 	})
 	if err := state.Save(); err != nil {

@@ -9,7 +9,7 @@ import (
 
 // TemplateVersion identifies the rendered shape. The marker file records it so
 // a reader can tell which tool version produced a Target repo.
-const TemplateVersion = 1
+const TemplateVersion = 2
 
 // Path is where the rendered workflow lives in a Target repo.
 func Path(name string) string { return ".github/workflows/" + name }
@@ -18,12 +18,13 @@ func Path(name string) string { return ".github/workflows/" + name }
 // already turned into GitHub expressions by the caller (either the run's
 // GITHUB_TOKEN or repo secrets).
 type Params struct {
-	Host       string
-	Image      string
-	Dockerfile string
-	Tags       []string
-	Username   string
-	Password   string
+	Host          string
+	Image         string
+	Dockerfile    string
+	Tags          []string
+	Username      string
+	Password      string
+	FreeDiskSpace bool
 }
 
 // Render fills in the template. GitHub expressions like ${{ ... }} are why the
@@ -60,6 +61,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+<% if .FreeDiskSpace %>
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # these default to true — turn off whatever you actually need
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+
+          # these default to FALSE, because their failures are hard to
+          # trace back to this action — see the FAQ below before enabling
+          preinstalled-runtimes: false
+          swap-storage: false
+<% end %>
       - name: Check out
         uses: actions/checkout@v4
 

@@ -50,6 +50,7 @@ func (f *syncFlags) register(cmd *cobra.Command, withForce bool) {
 	fl.StringVar(&f.Tags, "tags", "", "comma-separated image tags, replacing latest; sha-<commit> is always added")
 	fl.StringVar(&f.Workflow, "workflow", "", "workflow file name under .github/workflows (default fastci-build.yml)")
 	fl.BoolVar(&f.Public, "public", false, "create the Target repo as public")
+	fl.BoolVar(&f.FreeDiskSpace, "free-disk-space", false, "free runner disk space before the build")
 	fl.StringVar(&f.RegistryUsername, "registry-username", "", "registry username, stored as the REGISTRY_USERNAME secret")
 	fl.StringVar(&f.RegistryPassword, "registry-password", "", "registry password, stored as the REGISTRY_PASSWORD secret")
 	if withForce {

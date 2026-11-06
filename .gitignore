@@ -3,3 +3,6 @@
 
 # Editor and tool caches that hold no project code.
 /.codegraph/
+
+# GoReleaser output.
+/dist/

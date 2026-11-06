@@ -33,13 +33,14 @@ type Global struct {
 // Target repo, so it must never hold credentials: unknown keys are rejected and
 // no field here is secret.
 type Workspace struct {
-	Owner      string   `json:"owner"`
-	Repo       string   `json:"repo"`
-	Image      string   `json:"image"`
-	Dockerfile string   `json:"dockerfile"`
-	Tags       []string `json:"tags"`
-	Workflow   string   `json:"workflow"`
-	Public     bool     `json:"public"`
+	Owner         string   `json:"owner"`
+	Repo          string   `json:"repo"`
+	Image         string   `json:"image"`
+	Dockerfile    string   `json:"dockerfile"`
+	Tags          []string `json:"tags"`
+	Workflow      string   `json:"workflow"`
+	Public        bool     `json:"public"`
+	FreeDiskSpace bool     `json:"free_disk_space"`
 }
 
 // Flags carries only what the user typed on the command line. An empty value
@@ -52,6 +53,7 @@ type Flags struct {
 	Tags             string
 	Workflow         string
 	Public           bool
+	FreeDiskSpace    bool
 	RegistryUsername string
 	RegistryPassword string
 }
@@ -66,6 +68,7 @@ type Settings struct {
 	Tags             []string
 	Workflow         string
 	Public           bool
+	FreeDiskSpace    bool
 	Token            string
 	RegistryUsername string
 	RegistryPassword string
@@ -144,6 +147,7 @@ func Resolve(login, workspacePath string, flag Flags, ws Workspace, recorded Set
 		Dockerfile:       firstNonEmpty(flag.Dockerfile, ws.Dockerfile, recorded.Dockerfile, DefaultDockerfile),
 		Workflow:         firstNonEmpty(flag.Workflow, ws.Workflow, recorded.Workflow, DefaultWorkflow),
 		Public:           flag.Public || ws.Public,
+		FreeDiskSpace:    flag.FreeDiskSpace || ws.FreeDiskSpace || recorded.FreeDiskSpace,
 		Token:            firstNonEmpty(os.Getenv("GITHUB_TOKEN"), global.Token),
 		RegistryUsername: firstNonEmpty(flag.RegistryUsername, global.RegistryUsername),
 		RegistryPassword: firstNonEmpty(flag.RegistryPassword, global.RegistryPassword),

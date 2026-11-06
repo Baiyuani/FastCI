@@ -1,0 +1,40 @@
+version: 2
+
+project_name: fastci
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - main: ./cmd/fastci
+    binary: fastci
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-s -w -X github.com/Baiyuani/FastCI/internal/cli.Version={{ .Tag }}"
+
+archives:
+  - formats: [tar.gz]
+    name_template: "fastci_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: Baiyuani
+    name: FastCI

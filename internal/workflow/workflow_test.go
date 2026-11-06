@@ -61,3 +61,23 @@ func TestPath(t *testing.T) {
 		t.Errorf("Path = %q", got)
 	}
 }
+
+func TestRenderFreeDiskSpace(t *testing.T) {
+	out, err := Render(params())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "free-disk-space") {
+		t.Error("the cleanup step should stay out unless it is configured")
+	}
+
+	p := params()
+	p.FreeDiskSpace = true
+	out, err = Render(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "uses: jlumbroso/free-disk-space@main") {
+		t.Errorf("the cleanup step is missing:\n%s", out)
+	}
+}

@@ -62,8 +62,8 @@ fastci open --run      # 在浏览器里打开最新的工作流运行
 退出码：成功是 `0`，失败是 `1`；`2` 表示命令行本身有问题。
 
 `push` 和 `update` 接受 `--owner`、`--repo`、`--image`、`--dockerfile`、`--tags`、
-`--workflow`、`--public`、`--registry-username`、`--registry-password`。`update` 还接受
-`--force`。
+`--workflow`、`--public`、`--free-disk-space`、`--registry-username`、
+`--registry-password`。`update` 还接受 `--force`。
 
 ## 配置
 
@@ -85,8 +85,8 @@ fastci open --run      # 在浏览器里打开最新的工作流运行
 2. 上次同步的记录，位于 `~/.config/fastci/state.json`。这个文件由 FastCI 写，所以
    `fastci update` 不需要把每个参数再写一遍。
 3. 工作区里的 `fastci.json`，FastCI 会把它一起复制进目标仓库。它接受 `owner`、`repo`、
-   `image`、`dockerfile`、`tags`、`workflow`、`public`。因为它会进入仓库，所以
-   **凭据要放在全局配置里，绝不能放这里**：未知字段会直接报错。
+   `image`、`dockerfile`、`tags`、`workflow`、`public`、`free_disk_space`。
+   因为它会进入仓库，所以**凭据要放在全局配置里，绝不能放这里**：未知字段会直接报错。
 4. 命令行参数。
 
 FastCI 从不写入你的工作区。
@@ -147,6 +147,9 @@ fastci push --image registry.example.com/team/app \
 工作流只构建 `linux/amd64`。需要更多平台，就改
 `.github/workflows/fastci-build.yml`；注意之后一次 `update` 会覆盖掉这个改动。
 
+在 `fastci.json` 里设置 `"free_disk_space": true`（或加 `--free-disk-space`），
+构建前会先清理磁盘，适合空间不够的 runner。
+
 ## 拉取私有镜像
 
 目标仓库默认是私有的，对 GHCR 的首次推送会继承这个可见性，所以镜像也是私有的。拉取它需要
@@ -169,3 +172,13 @@ gofmt -l .
 ```
 
 `GLOSSARY.md` 定义了项目的术语；`docs/adr/` 记录了上面这些行为背后的决策。
+
+## 发布
+
+推送 `v*` 标签即可。`.github/workflows/release.yml` 会运行 GoReleaser，先跑测试，
+再发布各平台压缩包和 `checksums.txt`：
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```

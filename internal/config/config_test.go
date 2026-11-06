@@ -107,6 +107,17 @@ func TestResolveTagsReplacesTheRecord(t *testing.T) {
 	}
 }
 
+func TestResolveFreeDiskSpace(t *testing.T) {
+	got, err := Resolve("login", "/tmp/app", Flags{Owner: "o", Repo: "r"},
+		Workspace{FreeDiskSpace: true}, Settings{}, Global{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.FreeDiskSpace {
+		t.Error("free_disk_space in fastci.json should reach Settings")
+	}
+}
+
 func TestStateRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "state.json")
 	state, err := LoadState(path)

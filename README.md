@@ -68,7 +68,7 @@ and defaults to the current directory. Exit codes are `0` for success and `1`
 for a failure; `2` means the command line itself was wrong.
 
 `push` and `update` accept `--owner`, `--repo`, `--image`, `--dockerfile`,
-`--tags`, `--workflow`, `--public`, `--registry-username`, and
+`--tags`, `--workflow`, `--public`, `--free-disk-space`, `--registry-username`, and
 `--registry-password`. `update` also accepts `--force`.
 
 ## Configuration
@@ -91,9 +91,9 @@ Four sources, each one overriding the one before it:
 2. The record of the last Sync, in `~/.config/fastci/state.json`. FastCI writes
    this, so `fastci update` does not need every flag repeated.
 3. `fastci.json` in the Workspace, which FastCI copies into the Target repo. It
-   accepts `owner`, `repo`, `image`, `dockerfile`, `tags`, `workflow`, and
-   `public`. It travels into the repository, so **credentials go in the global
-   config, never here**: unknown keys are rejected.
+   accepts `owner`, `repo`, `image`, `dockerfile`, `tags`, `workflow`, `public`,
+   and `free_disk_space`. It travels into the repository, so **credentials go in
+   the global config, never here**: unknown keys are rejected.
 4. The command-line flags.
 
 FastCI never writes to your Workspace.
@@ -162,6 +162,9 @@ The workflow builds `linux/amd64` only. Add platforms in
 `.github/workflows/fastci-build.yml` if you need more, and note that a later
 `update` will overwrite that edit.
 
+Set `"free_disk_space": true` in `fastci.json` (or pass `--free-disk-space`) to
+add a disk cleanup step before the build, for runners that fill up.
+
 ## Pulling a private image
 
 Target repos are private by default, and the first publish to GHCR inherits
@@ -186,3 +189,13 @@ gofmt -l .
 
 `GLOSSARY.md` defines the project's vocabulary; `docs/adr/` records the
 decisions behind the behavior above.
+
+## Releasing
+
+Push a `v*` tag. `.github/workflows/release.yml` runs GoReleaser, which tests
+the code and publishes the archives and `checksums.txt`:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
