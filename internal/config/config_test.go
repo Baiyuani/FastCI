@@ -50,9 +50,6 @@ func TestResolvePrecedence(t *testing.T) {
 	if got.Owner != "global" {
 		t.Errorf("the global config should beat the login, got %q", got.Owner)
 	}
-	if got.RegistryUsername != "global-user" {
-		t.Errorf("RegistryUsername = %q", got.RegistryUsername)
-	}
 
 	got, err = Resolve("login", "/tmp/app", Flags{}, Workspace{}, Settings{}, Global{})
 	if err != nil {
@@ -70,6 +67,60 @@ func TestResolvePrecedence(t *testing.T) {
 	}
 	if !got.UsesGitHubToken() {
 		t.Error("ghcr.io with no credentials should log in with GITHUB_TOKEN")
+	}
+}
+
+func TestResolveRegistryCredentialsFollowTheRegistry(t *testing.T) {
+	global := Global{RegistryUsername: "global-user", RegistryPassword: "x"}
+	flags := Flags{Owner: "o", Repo: "r"}
+	settings, err := Resolve("login", "/tmp/app", flags, Workspace{}, Settings{}, global)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.UsesGitHubToken() {
+		t.Error("ghcr.io should ignore global credentials and use GITHUB_TOKEN")
+	}
+
+	flags.Image = "registry.example.com/o/r"
+	settings, err = Resolve("login", "/tmp/app", flags, Workspace{}, Settings{}, global)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.RegistryUsername != "global-user" || settings.RegistryPassword != "x" {
+		t.Error("another registry should still get the global credentials")
+	}
+
+	flags.Image = "ghcr.io/o/r"
+	flags.RegistryUsername = "ghcr-user"
+	flags.RegistryPassword = "y"
+	settings, err = Resolve("login", "/tmp/app", flags, Workspace{}, Settings{}, global)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.UsesGitHubToken() {
+		t.Error("explicit ghcr.io credentials should override GITHUB_TOKEN")
+	}
+
+	global.Registries = map[string]Registry{
+		"SWR.CN-NORTH-4.MYHUAWEICLOUD.COM": {Username: "swr-user", Password: "z"},
+	}
+	flags = Flags{Owner: "o", Repo: "r", Image: "swr.cn-north-4.myhuaweicloud.com/o/r"}
+	settings, err = Resolve("login", "/tmp/app", flags, Workspace{}, Settings{}, global)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.RegistryUsername != "swr-user" || settings.RegistryPassword != "z" {
+		t.Error("the registry entry should beat the legacy credentials")
+	}
+
+	global.Registries["ghcr.io"] = Registry{Username: "ghcr-user", Password: "w"}
+	flags = Flags{Owner: "o", Repo: "r", Image: "ghcr.io/o/r"}
+	settings, err = Resolve("login", "/tmp/app", flags, Workspace{}, Settings{}, global)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.UsesGitHubToken() {
+		t.Error("an explicit ghcr.io registry entry should be used")
 	}
 }
 

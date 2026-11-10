@@ -23,10 +23,17 @@ const (
 // Global is the machine-wide config. It holds credentials, so it is the one
 // config file that never reaches a repository.
 type Global struct {
-	Token            string `json:"token"`
-	Owner            string `json:"owner"`
-	RegistryUsername string `json:"registry_username"`
-	RegistryPassword string `json:"registry_password"`
+	Token            string              `json:"token"`
+	Owner            string              `json:"owner"`
+	RegistryUsername string              `json:"registry_username"` // legacy fallback for non-ghcr hosts
+	RegistryPassword string              `json:"registry_password"` // legacy fallback for non-ghcr hosts
+	Registries       map[string]Registry `json:"registries"`
+}
+
+// Registry holds the credentials for one registry host.
+type Registry struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // Workspace is a Workspace's optional fastci.json. FastCI copies it into the
@@ -141,19 +148,18 @@ func readJSON(path string, v any, required bool) error {
 // fastci.json, then the command-line flags.
 func Resolve(login, workspacePath string, flag Flags, ws Workspace, recorded Settings, global Global) (Settings, error) {
 	s := Settings{
-		Workspace:        workspacePath,
-		Owner:            firstNonEmpty(flag.Owner, ws.Owner, recorded.Owner, global.Owner, login),
-		Repo:             firstNonEmpty(flag.Repo, ws.Repo, recorded.Repo, filepath.Base(workspacePath)),
-		Dockerfile:       firstNonEmpty(flag.Dockerfile, ws.Dockerfile, recorded.Dockerfile, DefaultDockerfile),
-		Workflow:         firstNonEmpty(flag.Workflow, ws.Workflow, recorded.Workflow, DefaultWorkflow),
-		Public:           flag.Public || ws.Public,
-		FreeDiskSpace:    flag.FreeDiskSpace || ws.FreeDiskSpace || recorded.FreeDiskSpace,
-		Token:            firstNonEmpty(os.Getenv("GITHUB_TOKEN"), global.Token),
-		RegistryUsername: firstNonEmpty(flag.RegistryUsername, global.RegistryUsername),
-		RegistryPassword: firstNonEmpty(flag.RegistryPassword, global.RegistryPassword),
-		Tags:             firstNonEmptyList(parseTags(flag.Tags), ws.Tags, recorded.Tags),
+		Workspace:     workspacePath,
+		Owner:         firstNonEmpty(flag.Owner, ws.Owner, recorded.Owner, global.Owner, login),
+		Repo:          firstNonEmpty(flag.Repo, ws.Repo, recorded.Repo, filepath.Base(workspacePath)),
+		Dockerfile:    firstNonEmpty(flag.Dockerfile, ws.Dockerfile, recorded.Dockerfile, DefaultDockerfile),
+		Workflow:      firstNonEmpty(flag.Workflow, ws.Workflow, recorded.Workflow, DefaultWorkflow),
+		Public:        flag.Public || ws.Public,
+		FreeDiskSpace: flag.FreeDiskSpace || ws.FreeDiskSpace || recorded.FreeDiskSpace,
+		Token:         firstNonEmpty(os.Getenv("GITHUB_TOKEN"), global.Token),
+		Tags:          firstNonEmptyList(parseTags(flag.Tags), ws.Tags, recorded.Tags),
 	}
 	s.Image = firstNonEmpty(flag.Image, ws.Image, recorded.Image, DefaultRegistry+"/"+s.Owner+"/"+s.Repo)
+	s.RegistryUsername, s.RegistryPassword = registryCredentials(s.Host(), flag, global)
 
 	switch {
 	case s.Owner == "":
@@ -166,6 +172,25 @@ func Resolve(login, workspacePath string, flag Flags, ws Workspace, recorded Set
 		return Settings{}, fmt.Errorf("image %q needs a registry host, e.g. ghcr.io/%s/%s", s.Image, s.Owner, s.Repo)
 	}
 	return s, nil
+}
+
+// registryCredentials picks the credentials for the image's host. A registry
+// entry is authoritative; the old top-level pair only covers non-ghcr hosts so
+// credentials for another registry cannot leak into a GHCR build.
+func registryCredentials(host string, flag Flags, global Global) (string, string) {
+	stored := Registry{}
+	found := false
+	for key, registry := range global.Registries {
+		if strings.EqualFold(strings.TrimSpace(key), host) {
+			stored, found = registry, true
+			break
+		}
+	}
+	if !found && host != DefaultRegistry {
+		stored = Registry{Username: global.RegistryUsername, Password: global.RegistryPassword}
+	}
+	return firstNonEmpty(flag.RegistryUsername, stored.Username),
+		firstNonEmpty(flag.RegistryPassword, stored.Password)
 }
 
 func firstNonEmpty(values ...string) string {

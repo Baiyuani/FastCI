@@ -47,6 +47,22 @@ fastci status          # 上次同步和最近一次 CI 运行
 fastci open --run      # 在浏览器里打开最新的工作流运行
 ```
 
+## 让目标仓库一眼可辨
+
+每个目标仓库都会带上 topic `fastci-managed`；新建的仓库还会带上描述
+`Managed by FastCI`（已有描述不会被覆盖）。因此可以用
+`gh repo list --topic fastci-managed`，或在 GitHub 搜索
+`topic:fastci-managed` 一次列出全部目标仓库。
+
+如果希望和手工创建的仓库彻底分开，把 `owner` 指向一个专用组织：
+
+```json
+{ "owner": "my-fastci-org" }
+```
+
+token 需要有在该组织下创建仓库的权限。`fastci update` 也会给旧版本创建的目标仓库补齐
+这两项。
+
 ## 命令
 
 | 命令 | 作用 |
@@ -75,11 +91,16 @@ fastci open --run      # 在浏览器里打开最新的工作流运行
    {
      "token": "ghp_...",
      "owner": "my-account",
-     "registry_username": "robot",
-     "registry_password": "hunter2"
+     "registries": {
+       "swr.cn-north-4.myhuaweicloud.com": {
+         "username": "robot",
+         "password": "hunter2"
+       }
+     }
    }
    ```
 
+   `registries` 以镜像 host 为键；FastCI 按这次要推送的镜像自动选择对应凭据。
    环境变量 `GITHUB_TOKEN` 覆盖 `token`。
 
 2. 上次同步的记录，位于 `~/.config/fastci/state.json`。这个文件由 FastCI 写，所以
@@ -134,7 +155,10 @@ fastci push --tags v1,stable
 ## 注册表
 
 默认是 `ghcr.io`，构建时用本次运行自带的 `GITHUB_TOKEN` 登录，所以不需要任何配置。换别的
-注册表时，把主机名写进镜像地址，并把凭据交给 FastCI：
+注册表时，把主机名写进镜像地址，并在 `registries` 下按 host 配置凭据。全局配置里的旧
+顶层字段只作为非 GHCR 的回退，不会用于 `ghcr.io`；确实要用别的账号登录 GHCR 时，加一个
+`"ghcr.io"` 条目，或显式传 `--registry-username` 和 `--registry-password`。其他注册表
+可以写进 `registries`，也可以继续用命令行参数：
 
 ```sh
 fastci push --image registry.example.com/team/app \

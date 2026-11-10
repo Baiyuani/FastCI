@@ -41,11 +41,13 @@ func (e *Error) Is(target error) bool { return target == ErrNotFound && e.Status
 
 // Repo is the subset of a repository FastCI reads.
 type Repo struct {
-	FullName      string `json:"full_name"`
-	HTMLURL       string `json:"html_url"`
-	CloneURL      string `json:"clone_url"`
-	Private       bool   `json:"private"`
-	DefaultBranch string `json:"default_branch"`
+	FullName      string   `json:"full_name"`
+	HTMLURL       string   `json:"html_url"`
+	CloneURL      string   `json:"clone_url"`
+	Private       bool     `json:"private"`
+	DefaultBranch string   `json:"default_branch"`
+	Description   string   `json:"description"`
+	Topics        []string `json:"topics"`
 }
 
 // Run is the subset of a workflow run FastCI reports.
@@ -131,7 +133,7 @@ func (c *Client) HasCommits(owner, repo string) (bool, error) {
 
 // CreateRepo creates an empty repository under the user's account or an org.
 // auto_init stays false: FastCI pushes the first commit itself.
-func (c *Client) CreateRepo(owner, name string, private bool) (Repo, error) {
+func (c *Client) CreateRepo(owner, name, description string, private bool) (Repo, error) {
 	login, err := c.Login()
 	if err != nil {
 		return Repo{}, err
@@ -140,12 +142,24 @@ func (c *Client) CreateRepo(owner, name string, private bool) (Repo, error) {
 	if owner != login {
 		path = "/orgs/" + owner + "/repos"
 	}
-	body := map[string]any{"name": name, "private": private, "auto_init": false}
+	body := map[string]any{"name": name, "description": description, "private": private, "auto_init": false}
 	var out Repo
 	if err := c.do(http.MethodPost, path, body, &out); err != nil {
 		return Repo{}, err
 	}
 	return out, nil
+}
+
+// SetDescription replaces the repository's description.
+func (c *Client) SetDescription(owner, repo, description string) error {
+	body := map[string]string{"description": description}
+	return c.do(http.MethodPatch, "/repos/"+owner+"/"+repo, body, nil)
+}
+
+// SetTopics replaces all of the repository's topics.
+func (c *Client) SetTopics(owner, repo string, topics []string) error {
+	body := map[string][]string{"names": topics}
+	return c.do(http.MethodPut, "/repos/"+owner+"/"+repo+"/topics", body, nil)
 }
 
 // SetDefaultBranch points the repository's default branch at an existing one.

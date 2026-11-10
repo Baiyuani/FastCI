@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/Baiyuani/FastCI/internal/config"
@@ -21,6 +22,13 @@ import (
 // DefaultBranch is the only branch FastCI ever writes. ADR-0001: a Target repo
 // carries generated history, never the Workspace's.
 const DefaultBranch = "main"
+
+// managedDescription and managedTopic mark a Target repo in GitHub's UI so it
+// does not get lost among hand-made repositories.
+const (
+	managedDescription = "Managed by FastCI"
+	managedTopic       = "fastci-managed"
+)
 
 // Mode says whether a Sync creates the Target repo or updates one.
 type Mode int
@@ -76,6 +84,7 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 	key := opts.Settings.Key()
 	owner, name := opts.Settings.Owner, opts.Settings.Repo
 	recorded, hasRecord := state.Get(key)
+	result := Result{Warnings: ws.warnings}
 
 	var remote github.Repo
 	exists := false
@@ -109,6 +118,9 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 			return Result{}, fmt.Errorf("Target repo %s no longer exists on GitHub", key)
 		}
 	}
+	if exists {
+		ensureManagedMetadata(gh, owner, name, remote, &result)
+	}
 
 	dir, err := os.MkdirTemp("", "fastci-stage-")
 	if err != nil {
@@ -136,7 +148,6 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 		}
 	}
 
-	result := Result{Warnings: ws.warnings}
 	result.ImageRefs = ImageRefs(opts.Settings.Image, opts.Settings.Tags, ws.commit)
 	if !opts.Settings.UsesGitHubToken() && opts.Settings.RegistryPassword == "" && opts.Settings.RegistryUsername == "" {
 		result.Warnings = append(result.Warnings, fmt.Sprintf(
@@ -210,9 +221,10 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 	}
 
 	if !exists {
-		if remote, err = gh.CreateRepo(owner, name, !opts.Settings.Public); err != nil {
+		if remote, err = gh.CreateRepo(owner, name, managedDescription, !opts.Settings.Public); err != nil {
 			return Result{}, fmt.Errorf("creating %s: %w", key, err)
 		}
+		ensureManagedMetadata(gh, owner, name, remote, &result)
 	}
 	if err := pushBranch(dir, remote.CloneURL, gh.Token, DefaultBranch); err != nil {
 		return Result{}, fmt.Errorf("pushing to %s (%s): %w", key, remote.HTMLURL, err)
@@ -241,6 +253,22 @@ func Run(gh *github.Client, state *config.State, opts Options) (Result, error) {
 
 	result.RepoURL, result.Commit, result.Changed = remote.HTMLURL, commit, true
 	return result, nil
+}
+
+// ensureManagedMetadata tags the Target repo without replacing a description or
+// topics the user set themselves.
+func ensureManagedMetadata(gh *github.Client, owner, repo string, remote github.Repo, result *Result) {
+	if remote.Description == "" {
+		if err := gh.SetDescription(owner, repo, managedDescription); err != nil {
+			result.Warnings = append(result.Warnings, "could not set the repository description: "+err.Error())
+		}
+	}
+	if !slices.Contains(remote.Topics, managedTopic) {
+		topics := append(append([]string{}, remote.Topics...), managedTopic)
+		if err := gh.SetTopics(owner, repo, topics); err != nil {
+			result.Warnings = append(result.Warnings, "could not set the repository topics: "+err.Error())
+		}
+	}
 }
 
 func loginUser(s config.Settings, fallback string) string {

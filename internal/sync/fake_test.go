@@ -38,8 +38,10 @@ type fakeGitHub struct {
 }
 
 type fakeRepo struct {
-	private bool
-	runs    []github.Run
+	private     bool
+	description string
+	topics      []string
+	runs        []github.Run
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
@@ -77,8 +79,9 @@ func (f *fakeGitHub) handle(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodPost && (path == "user/repos" || (len(parts) == 3 && parts[0] == "orgs")):
 		var body struct {
-			Name    string `json:"name"`
-			Private bool   `json:"private"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Private     bool   `json:"private"`
 		}
 		decodeBody(f.t, r, &body)
 		owner := "tester"
@@ -86,7 +89,7 @@ func (f *fakeGitHub) handle(w http.ResponseWriter, r *http.Request) {
 			owner = parts[1]
 		}
 		key := owner + "/" + body.Name
-		f.repos[key] = &fakeRepo{private: body.Private}
+		f.repos[key] = &fakeRepo{private: body.Private, description: body.Description}
 		writeJSON(w, http.StatusCreated, f.repoJSON(key))
 
 	case len(parts) >= 3 && parts[0] == "repos":
@@ -100,10 +103,24 @@ func (f *fakeGitHub) handle(w http.ResponseWriter, r *http.Request) {
 		case len(parts) == 3 && r.Method == http.MethodGet:
 			writeJSON(w, http.StatusOK, f.repoJSON(key))
 		case len(parts) == 3 && r.Method == http.MethodPatch:
+			var body struct {
+				Description *string `json:"description"`
+			}
+			decodeBody(f.t, r, &body)
+			if body.Description != nil {
+				repo.description = *body.Description
+			}
 			writeJSON(w, http.StatusOK, f.repoJSON(key))
 		case len(parts) == 3 && r.Method == http.MethodDelete:
 			delete(f.repos, key)
 			w.WriteHeader(http.StatusNoContent)
+		case len(parts) == 4 && parts[3] == "topics" && r.Method == http.MethodPut:
+			var body struct {
+				Names []string `json:"names"`
+			}
+			decodeBody(f.t, r, &body)
+			repo.topics = body.Names
+			writeJSON(w, http.StatusOK, map[string][]string{"names": repo.topics})
 		case len(parts) == 4 && parts[3] == "commits":
 			if !f.hasCommits() {
 				writeJSON(w, http.StatusConflict, map[string]string{"message": "Git Repository is empty."})
@@ -161,12 +178,15 @@ func (f *fakeGitHub) handleSecrets(w http.ResponseWriter, r *http.Request, name 
 }
 
 func (f *fakeGitHub) repoJSON(key string) map[string]any {
+	repo := f.repos[key]
 	return map[string]any{
 		"full_name":      key,
 		"html_url":       f.webURL + "/" + key,
 		"clone_url":      f.bare,
-		"private":        f.repos[key].private,
+		"private":        repo.private,
 		"default_branch": "main",
+		"description":    repo.description,
+		"topics":         repo.topics,
 	}
 }
 

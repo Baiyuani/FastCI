@@ -52,6 +52,23 @@ fastci status          # last sync and the last CI run
 fastci open --run      # open the newest workflow run in the browser
 ```
 
+## Keeping Target repos apart
+
+Every Target repo gets the topic `fastci-managed`, and a new one also gets the
+description `Managed by FastCI` (an existing description is left alone). So
+`gh repo list --topic fastci-managed` (or a GitHub search for
+`topic:fastci-managed`) lists them all.
+
+For a clean separation from your hand-made repositories, point `owner` at a
+dedicated organization:
+
+```json
+{ "owner": "my-fastci-org" }
+```
+
+The token must be allowed to create repositories there. `fastci update` fills
+both in for Target repos created by older versions too.
+
 ## Commands
 
 | Command | What it does |
@@ -81,12 +98,17 @@ Four sources, each one overriding the one before it:
    {
      "token": "ghp_...",
      "owner": "my-account",
-     "registry_username": "robot",
-     "registry_password": "hunter2"
+     "registries": {
+       "swr.cn-north-4.myhuaweicloud.com": {
+         "username": "robot",
+         "password": "hunter2"
+       }
+     }
    }
    ```
 
-   `GITHUB_TOKEN` overrides `token`.
+   `registries` is keyed by image host; FastCI picks the entry matching the
+   image it is about to push. `GITHUB_TOKEN` overrides `token`.
 
 2. The record of the last Sync, in `~/.config/fastci/state.json`. FastCI writes
    this, so `fastci update` does not need every flag repeated.
@@ -146,8 +168,12 @@ uncommitted changes publishes an image that names only the base commit.
 ## Registries
 
 The default is `ghcr.io`, and the build logs in with the run's own
-`GITHUB_TOKEN`, so nothing needs configuring. For another registry, name it in
-the image and hand FastCI the credentials:
+`GITHUB_TOKEN`, so nothing needs configuring. Global registry credentials are
+not used for `ghcr.io` because they usually belong to another registry; add a
+`"ghcr.io"` entry under `registries`, or pass `--registry-username` and
+`--registry-password`, if a run must override `GITHUB_TOKEN`. For another
+registry, name it in the image and either add its credentials under
+`registries` or pass them as flags:
 
 ```sh
 fastci push --image registry.example.com/team/app \

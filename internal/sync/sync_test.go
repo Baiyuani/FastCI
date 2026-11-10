@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,6 +32,12 @@ func TestPushCreatesTheTargetRepo(t *testing.T) {
 	}
 	if !repo.private {
 		t.Error("the Target repo should be private by default")
+	}
+	if repo.description != "Managed by FastCI" {
+		t.Errorf("description = %q, want the FastCI marker", repo.description)
+	}
+	if !slices.Contains(repo.topics, "fastci-managed") {
+		t.Errorf("topics = %v, want fastci-managed", repo.topics)
 	}
 
 	tree := fake.treeNames()
@@ -85,6 +92,32 @@ func TestPushCreatesTheTargetRepo(t *testing.T) {
 	}
 	if len(result.Warnings) == 0 {
 		t.Error("the nested repo and the .env file should have produced warnings")
+	}
+}
+
+func TestUpdateAddsManagedMetadataWithoutOverwritingTheUsers(t *testing.T) {
+	workspace := newWorkspace(t)
+	fake := newFakeGitHub(t)
+	state := newState(t)
+	settings := settingsFor(t, workspace)
+	push(t, fake, state, settings)
+
+	repo := fake.repos["tester/app"]
+	repo.description = "my own description"
+	repo.topics = []string{"custom"}
+
+	if _, err := fastcisync.Run(fake.client(), state, fastcisync.Options{
+		Settings: settings, Mode: fastcisync.ModeUpdate, Version: "test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.description != "my own description" {
+		t.Errorf("update overwrote the description: %q", repo.description)
+	}
+	for _, want := range []string{"custom", "fastci-managed"} {
+		if !slices.Contains(repo.topics, want) {
+			t.Errorf("topics = %v, want %q kept", repo.topics, want)
+		}
 	}
 }
 
